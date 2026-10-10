@@ -17,6 +17,7 @@ export class ConnectionsGame {
 
     this.order = flat.map((t) => t.content);
     this.selected = [];
+    this.guesses = [];
     this.solved = data.categories.map(() => false);
     this.revealed = data.categories.map(() => false);
     this.mistakes = this.maxMistakes;
@@ -31,6 +32,7 @@ export class ConnectionsGame {
   canSubmit() { return !this.over && this.selected.length === 4; }
   canDeselect() { return !this.over && this.selected.length > 0; }
   canShuffle() { return !this.over && this.order.length > 1; }
+  canOrganize() { return this.selected.length > 0; }
 
   toggle(word) {
     if (this.over) return;
@@ -52,8 +54,21 @@ export class ConnectionsGame {
     this.deselect();
   }
 
+  organize() {
+    if (this.over || this.selected.length === 0) return;
+    const pinned = this.selected.slice();
+    this.order = pinned.concat(this.order.filter((w) => !pinned.includes(w)));
+  }
+
   submit() {
     if (!this.canSubmit()) return { type: 'noop' };
+
+    const group = [...this.selected].sort();
+    const key = group.join('\u0001');
+    const prev = this.guesses.find((g) => g.key === key);
+    if (prev) {
+      return prev.oneAway ? { type: 'one-away' } : { type: 'already-guessed' };
+    }
 
     const counts = new Map();
     this.selected.forEach((w) => {
@@ -65,7 +80,9 @@ export class ConnectionsGame {
     counts.forEach((n, ci) => { if (!this.solved[ci] && n === 3) oneAway = true; });
 
     const ci = counts.size === 1 ? [...counts.keys()][0] : -1;
-    if (ci > -1 && !this.solved[ci]) return this._solve(ci);
+    const correct = ci > -1 && !this.solved[ci];
+    this.guesses.push({ key, oneAway: !correct && oneAway });
+    if (correct) return this._solve(ci);
     return this._wrong(oneAway);
   }
 

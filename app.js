@@ -8,6 +8,7 @@ const el = {
   dots: document.getElementById('dots'),
   shuffle: document.getElementById('shuffle'),
   deselect: document.getElementById('deselect'),
+  organize: document.getElementById('organize'),
   submit: document.getElementById('submit'),
   date: document.getElementById('date'),
   toast: document.getElementById('toast'),
@@ -108,11 +109,10 @@ function renderTiles() {
 }
 
 function renderDots() {
-  const used = game.maxMistakes - game.mistakes;
   el.dots.innerHTML = '';
-  for (let i = 0; i < game.maxMistakes; i++) {
+  for (let i = 0; i < game.mistakes; i++) {
     const dot = document.createElement('span');
-    dot.className = 'dot' + (i < used ? ' is-used' : '');
+    dot.className = 'dot';
     el.dots.appendChild(dot);
   }
 }
@@ -121,9 +121,11 @@ function updateControls() {
   el.deselect.disabled = !game.canDeselect();
   el.submit.disabled = !game.canSubmit();
   el.shuffle.disabled = !game.canShuffle();
+  el.organize.disabled = !game.canOrganize();
   el.deselect.classList.toggle('is-active', !el.deselect.disabled);
   el.submit.classList.toggle('is-active', !el.submit.disabled);
   el.shuffle.classList.toggle('is-active', !el.shuffle.disabled);
+  el.organize.classList.toggle('is-active', !el.organize.disabled);
 }
 
 function onTileClick(word, tile) {
@@ -144,6 +146,12 @@ function onDeselect() {
   render();
 }
 
+function onOrganize() {
+  if (!game.canOrganize()) return;
+  game.organize();
+  render();
+}
+
 function onSubmit() {
   if (!game.canSubmit()) return;
   const result = game.submit();
@@ -152,6 +160,10 @@ function onSubmit() {
     render();
     if (result.oneAway) showToast('One away');
     shake();
+  } else if (result.type === 'one-away') {
+    showToast('One away');
+  } else if (result.type === 'already-guessed') {
+    showToast('Already Guessed');
   } else {
     render();
   }
@@ -166,6 +178,7 @@ function shake() {
 
 el.shuffle.addEventListener('click', onShuffle);
 el.deselect.addEventListener('click', onDeselect);
+el.organize.addEventListener('click', onOrganize);
 el.submit.addEventListener('click', onSubmit);
 
 if (document.fonts && document.fonts.ready) {
