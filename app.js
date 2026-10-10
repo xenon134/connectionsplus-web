@@ -1,3 +1,5 @@
+import { ConnectionsGame } from './game.js';
+
 const COLORS = ['#F9DF6D', '#A0C35A', '#B0C4EF', '#BA81C5'];
 
 const el = {
@@ -11,18 +13,7 @@ const el = {
   toast: document.getElementById('toast'),
 };
 
-const state = {
-  categories: [],
-  wordCat: new Map(),
-  order: [],
-  selected: [],
-  solved: [false, false, false, false],
-  revealed: [false, false, false, false],
-  mistakes: 4,
-  over: false,
-};
-
-const MAX_MISTAKES = 4;
+let game = null;
 let toastTimer;
 
 function showToast(msg) {
@@ -47,21 +38,9 @@ function load() {
 }
 
 function init(data) {
-  state.categories = data.categories;
-  data.categories.forEach((cat, ci) => {
-    cat.cards.forEach((card) => state.wordCat.set(card.content, ci));
-  });
-
-  const flat = [];
-  data.categories.forEach((cat, ci) =>
-    cat.cards.forEach((card) => flat.push({ content: card.content, position: card.position, cat: ci }))
-  );
-  flat.sort((a, b) => a.position - b.position);
-  state.order = flat.map((t) => t.content);
-
-  const d = new Date(data.print_date + 'T00:00:00');
+  game = new ConnectionsGame(data);
+  const d = new Date(game.printDate + 'T00:00:00');
   el.date.textContent = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-
   render();
 }
 
@@ -73,8 +52,8 @@ function render() {
   fitTiles();
 }
 
-function fits(tile) {
-  return tile.scrollWidth <= tile.clientWidth + 1 && tile.scrollHeight <= tile.clientHeight + 1;
+function fits(node) {
+  return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
 }
 
 function shrinkToFit(node, base) {
@@ -92,15 +71,14 @@ function fitTiles() {
 
 function renderSolved() {
   el.solved.innerHTML = '';
-  state.categories.forEach((cat, ci) => {
-    if (state.solved[ci] || state.revealed[ci]) {
-      el.solved.appendChild(solvedBar(ci, cat, !state.solved[ci]));
+  game.categories.forEach((cat, ci) => {
+    if (game.isSolved(ci) || game.isRevealed(ci)) {
+      el.solved.appendChild(solvedBar(ci, cat, game.isRevealed(ci)));
     }
   });
 }
 
 function solvedBar(ci, cat, reveal) {
-  const words = cat.cards.map((c) => c.content).sort();
   const bar = document.createElement('div');
   bar.className = 'solved' + (reveal ? ' solved--reveal' : '');
   bar.style.background = COLORS[ci];
@@ -111,7 +89,7 @@ function solvedBar(ci, cat, reveal) {
 
   const list = document.createElement('div');
   list.className = 'solved__words';
-  list.textContent = words.join(', ');
+  list.textContent = game.wordsFor(ci).join(', ');
 
   bar.append(title, list);
   return bar;
@@ -119,20 +97,20 @@ function solvedBar(ci, cat, reveal) {
 
 function renderTiles() {
   el.tiles.innerHTML = '';
-  state.order.forEach((word) => {
+  game.order.forEach((word) => {
     const tile = document.createElement('button');
     tile.type = 'button';
-    tile.className = 'tile' + (state.selected.includes(word) ? ' is-selected' : '');
+    tile.className = 'tile' + (game.isSelected(word) ? ' is-selected' : '');
     tile.textContent = word;
-    tile.addEventListener('click', () => toggle(word, tile));
+    tile.addEventListener('click', () => onTileClick(word, tile));
     el.tiles.appendChild(tile);
   });
 }
 
 function renderDots() {
-  const used = MAX_MISTAKES - state.mistakes;
+  const used = game.maxMistakes - game.mistakes;
   el.dots.innerHTML = '';
-  for (let i = 0; i < MAX_MISTAKES; i++) {
+  for (let i = 0; i < game.maxMistakes; i++) {
     const dot = document.createElement('span');
     dot.className = 'dot' + (i < used ? ' is-used' : '');
     el.dots.appendChild(dot);
@@ -140,90 +118,42 @@ function renderDots() {
 }
 
 function updateControls() {
-  const n = state.selected.length;
-  el.deselect.disabled = n === 0 || state.over;
-  el.submit.disabled = n !== 4 || state.over;
-  el.shuffle.disabled = state.over || state.order.length < 2;
+  el.deselect.disabled = !game.canDeselect();
+  el.submit.disabled = !game.canSubmit();
+  el.shuffle.disabled = !game.canShuffle();
   el.deselect.classList.toggle('is-active', !el.deselect.disabled);
   el.submit.classList.toggle('is-active', !el.submit.disabled);
   el.shuffle.classList.toggle('is-active', !el.shuffle.disabled);
 }
 
-function toggle(word, tile) {
-  if (state.over) return;
-  const i = state.selected.indexOf(word);
-  if (i > -1) {
-    state.selected.splice(i, 1);
-  } else if (state.selected.length < 4) {
-    state.selected.push(word);
-  } else {
-    return;
-  }
-  tile.classList.toggle('is-selected');
+function onTileClick(word, tile) {
+  game.toggle(word);
+  tile.classList.toggle('is-selected', game.isSelected(word));
   updateControls();
 }
 
-function clearSelection() {
-  state.selected = [];
-}
-
-function shuffle() {
-  if (el.shuffle.disabled) return;
-  for (let i = state.order.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [state.order[i], state.order[j]] = [state.order[j], state.order[i]];
-  }
-  clearSelection();
+function onShuffle() {
+  if (!game.canShuffle()) return;
+  game.shuffle();
   render();
 }
 
-function submit() {
-  if (el.submit.disabled) return;
-  const sel = state.selected;
-  const counts = new Map();
-  sel.forEach((w) => {
-    const ci = state.wordCat.get(w);
-    counts.set(ci, (counts.get(ci) || 0) + 1);
-  });
-
-  let oneAway = false;
-  counts.forEach((n, ci) => { if (!state.solved[ci] && n === 3) oneAway = true; });
-
-  if (counts.size === 1 && !state.solved[singleCat(counts)]) {
-    solve(singleCat(counts));
-  } else {
-    wrong(oneAway);
-  }
-}
-
-function singleCat(counts) {
-  return [...counts.keys()][0];
-}
-
-function solve(ci) {
-  state.solved[ci] = true;
-  state.order = state.order.filter((w) => state.wordCat.get(w) !== ci);
-  clearSelection();
+function onDeselect() {
+  if (!game.canDeselect()) return;
+  game.deselect();
   render();
-  if (state.solved.every(Boolean)) {
-    state.over = true;
-    render();
-  }
 }
 
-function wrong(oneAway) {
-  state.mistakes = Math.max(0, state.mistakes - 1);
+function onSubmit() {
+  if (!game.canSubmit()) return;
+  const result = game.submit();
 
-  if (state.mistakes === 0) {
-    state.over = true;
-    state.categories.forEach((_, ci) => { if (!state.solved[ci]) state.revealed[ci] = true; });
-    state.order = [];
-    clearSelection();
+  if (result.type === 'wrong') {
     render();
-  } else {
-    if (oneAway) showToast('One away');
-    render();
+    if (result.oneAway) showToast('One away');
     shake();
+  } else {
+    render();
   }
 }
 
@@ -234,12 +164,12 @@ function shake() {
   });
 }
 
-el.shuffle.addEventListener('click', shuffle);
-el.deselect.addEventListener('click', () => { clearSelection(); render(); });
-el.submit.addEventListener('click', submit);
+el.shuffle.addEventListener('click', onShuffle);
+el.deselect.addEventListener('click', onDeselect);
+el.submit.addEventListener('click', onSubmit);
 
 if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(fitTiles);
+  document.fonts.ready.then(() => { if (game) fitTiles(); });
 }
 
 load();
