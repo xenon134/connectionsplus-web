@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connections — The New York Times</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__left">
+      <button class="iconbtn" aria-label="Sections menu">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <a class="wordmark" href="#">
+        <span class="wordmark__t">T</span>
+        <span class="wordmark__games">Games</span>
+      </a>
+    </div>
+    <div class="topbar__right">
+      <a class="btn btn--subscribe" href="#">Subscribe</a>
+      <a class="btn btn--login" href="#">Log In</a>
+      <button class="iconbtn" aria-label="Display settings">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="game-head">
+      <div class="game-head__meta">
+        <h1 class="game-head__title">Connections</h1>
+        <p class="game-head__date" id="date">October 10, 2026</p>
+      </div>
+      <div class="game-head__actions">
+        <button class="iconbtn" aria-label="Hint">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.3 1 2.2h5.2c0-.9.4-1.7 1-2.2A6 6 0 0 0 12 3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="iconbtn" aria-label="Statistics">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 19V11M12 19V5M18 19v-6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+        </button>
+        <button class="iconbtn" aria-label="How to play">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9.4 9.3a2.7 2.7 0 1 1 3.6 2.5c-.7.3-1 .9-1 1.6v.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="17" r="1.05" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <article class="board">
+      <h2 class="board__prompt">Create four groups of four!</h2>
+      <form id="game" class="board__form" autocomplete="off">
+        <div class="stack">
+          <div id="solved" class="solvedstack" aria-live="polite"></div>
+          <div id="tiles" class="grid" role="group" aria-label="Select four items that share something in common"></div>
+        </div>
+      </form>
+      <section class="mistakes">
+        <span class="mistakes__label">Mistakes Remaining:</span>
+        <span id="dots" class="mistakes__dots" aria-hidden="true"></span>
+      </section>
+      <section class="controls">
+        <button type="button" id="shuffle" class="pill pill--active">Shuffle</button>
+        <button type="button" id="deselect" class="pill" disabled>Deselect All</button>
+        <button type="button" id="submit" class="pill" disabled>Submit</button>
+      </section>
+    </article>
+  </main>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
