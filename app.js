@@ -11,6 +11,8 @@ const el = {
   organize: document.getElementById('organize'),
   submit: document.getElementById('submit'),
   date: document.getElementById('date'),
+  prev: document.getElementById('prev'),
+  next: document.getElementById('next'),
   toast: document.getElementById('toast'),
 };
 
@@ -25,17 +27,60 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.toast.classList.remove('show'), 1400);
 }
 
-function load() {
-  fetch('puzzletoday.json')
-    .then((r) => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(init)
-    .catch(() => {
-      el.tiles.innerHTML =
-        '<div class="load-error">Could not load puzzletoday.json. Serve this folder over HTTP (e.g. <code>python -m http.server</code>) and reload.</div>';
-    });
+const CACHE_PREFIX = 'connections:v1:';
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function dateString(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function todayString() { return dateString(new Date()); }
+function shiftDate(dateStr, delta) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  return dateString(d);
+}
+const cacheKey = (dateStr) => CACHE_PREFIX + dateStr;
+
+function cacheGet(dateStr) {
+  try {
+    const raw = localStorage.getItem(cacheKey(dateStr));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function cacheSet(dateStr, data) {
+  try { localStorage.setItem(cacheKey(dateStr), JSON.stringify(data)); } catch { }
+}
+
+async function fetchPuzzle(dateStr) {
+  const cached = cacheGet(dateStr);
+  if (cached) return cached;
+
+  const urls = [`puzzle/${dateStr}.json`];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!data || !Array.isArray(data.categories)) continue;
+      cacheSet(dateStr, data);
+      return data;
+    } catch { }
+  }
+  return null;
+}
+
+let currentDate = null;
+
+async function loadDate(dateStr) {
+  const data = await fetchPuzzle(dateStr);
+  if (!data) return false;
+  currentDate = dateStr;
+  init(data);
+  return true;
+}
+
+async function goTo(dateStr) {
+  const ok = await loadDate(dateStr);
+  if (!ok) showToast('No puzzle available for that date');
 }
 
 function init(data) {
@@ -180,9 +225,16 @@ el.shuffle.addEventListener('click', onShuffle);
 el.deselect.addEventListener('click', onDeselect);
 el.organize.addEventListener('click', onOrganize);
 el.submit.addEventListener('click', onSubmit);
+el.prev.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), -1)));
+el.next.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), 1)));
 
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => { if (game) fitTiles(); });
 }
 
-load();
+loadDate(todayString()).then((ok) => {
+  if (!ok) {
+    el.tiles.innerHTML =
+      '<div class="load-error">Could not load the puzzle. Put it at <code>puzzle/&lt;date&gt;.json</code> or check that the NYT service is reachable, then reload.</div>';
+  }
+});
