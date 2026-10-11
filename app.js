@@ -1,6 +1,7 @@
 import { ConnectionsGame } from './game.js';
 
 const COLORS = ['#F9DF6D', '#A0C35A', '#B0C4EF', '#BA81C5'];
+const CATEGORY_EMOJIS = ['🟨', '🟩', '🟦', '🟪'];
 
 const el = {
   tiles: document.getElementById('tiles'),
@@ -10,10 +11,18 @@ const el = {
   deselect: document.getElementById('deselect'),
   organize: document.getElementById('organize'),
   submit: document.getElementById('submit'),
+  giveup: document.getElementById('giveup'),
+  stats: document.getElementById('stats-btn'),
   date: document.getElementById('date'),
   prev: document.getElementById('prev'),
   next: document.getElementById('next'),
   toast: document.getElementById('toast'),
+  modal: document.getElementById('results-modal'),
+  modalTitle: document.getElementById('modal-title'),
+  modalClose: document.getElementById('modal-close'),
+  modalGrid: document.getElementById('modal-grid'),
+  modalShare: document.getElementById('modal-share'),
+  modalContinue: document.getElementById('modal-continue'),
 };
 
 let game = null;
@@ -87,6 +96,7 @@ function init(data) {
   game = new ConnectionsGame(data);
   const d = new Date(game.printDate + 'T00:00:00');
   el.date.textContent = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  closeResultsModal();
   render();
 }
 
@@ -171,6 +181,11 @@ function updateControls() {
   el.submit.classList.toggle('is-active', !el.submit.disabled);
   el.shuffle.classList.toggle('is-active', !el.shuffle.disabled);
   el.organize.classList.toggle('is-active', !el.organize.disabled);
+
+  const canGiveUp = game.canGiveUp();
+  el.giveup.hidden = !canGiveUp;
+  el.giveup.disabled = !canGiveUp;
+  el.giveup.classList.toggle('is-active', canGiveUp);
 }
 
 function onTileClick(word, tile) {
@@ -197,6 +212,13 @@ function onOrganize() {
   render();
 }
 
+function onGiveUp() {
+  if (!game.canGiveUp()) return;
+  game.giveUp();
+  render();
+  setTimeout(() => openResultsModal(), 400);
+}
+
 function onSubmit() {
   if (!game.canSubmit()) return;
   const result = game.submit();
@@ -205,10 +227,18 @@ function onSubmit() {
     render();
     if (result.oneAway) showToast('One away');
     shake();
+  } else if (result.type === 'out-of-mistakes') {
+    render();
+    if (result.oneAway) showToast('One away');
+    shake();
+    setTimeout(() => openResultsModal(), 700);
   } else if (result.type === 'one-away') {
     showToast('One away');
   } else if (result.type === 'already-guessed') {
     showToast('Already Guessed');
+  } else if (result.type === 'won') {
+    render();
+    setTimeout(() => openResultsModal(), 700);
   } else {
     render();
   }
@@ -221,10 +251,97 @@ function shake() {
   });
 }
 
+function openResultsModal() {
+  if (!game) return;
+  el.modalTitle.textContent = getOutcomeTitle();
+  renderModalGrid();
+  el.modal.hidden = false;
+  el.modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeResultsModal() {
+  el.modal.hidden = true;
+  el.modal.setAttribute('aria-hidden', 'true');
+}
+
+function getOutcomeTitle() {
+  if (game.over) {
+    if (game.mistakes === 0) return 'Nice try!';
+    const mistakesUsed = game.maxMistakes - game.mistakes;
+    const titles = ['Perfect!', 'Great!', 'Solid!', 'Phew!'];
+    return titles[mistakesUsed] || 'Great!';
+  }
+  if (game.mistakes === 0) return 'Nice try!';
+  return 'Connections';
+}
+
+function renderModalGrid() {
+  el.modalGrid.innerHTML = '';
+  if (!game || !game.guesses) return;
+  game.guesses.forEach((guess) => {
+    guess.categories.forEach((catIndex) => {
+      const cell = document.createElement('div');
+      cell.className = `modal__cell modal__cell--${catIndex}`;
+      el.modalGrid.appendChild(cell);
+    });
+  });
+}
+
+function getShareText() {
+  const titleLine = `Connections\n${game.id ? `Puzzle #${game.id}` : game.printDate}`;
+  const gridText = game.guesses
+    .map((g) => g.categories.map((c) => CATEGORY_EMOJIS[c]).join(''))
+    .join('\n');
+  return `${titleLine}\n${gridText}`;
+}
+
+function shareResults() {
+  const text = getShareText();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('Copied to clipboard'))
+      .catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('Copied to clipboard');
+  } catch {
+    showToast('Failed to copy');
+  }
+  document.body.removeChild(ta);
+}
+
 el.shuffle.addEventListener('click', onShuffle);
 el.deselect.addEventListener('click', onDeselect);
 el.organize.addEventListener('click', onOrganize);
+el.giveup.addEventListener('click', onGiveUp);
 el.submit.addEventListener('click', onSubmit);
+el.modalClose.addEventListener('click', closeResultsModal);
+el.modalContinue.addEventListener('click', closeResultsModal);
+el.modalShare.addEventListener('click', shareResults);
+el.modal.addEventListener('click', (e) => {
+  if (e.target === el.modal) closeResultsModal();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !el.modal.hidden) closeResultsModal();
+});
+el.stats?.addEventListener('click', () => {
+  if (game && (game.over || game.guesses.length > 0)) {
+    openResultsModal();
+  }
+});
+
 el.prev.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), -1)));
 el.next.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), 1)));
 

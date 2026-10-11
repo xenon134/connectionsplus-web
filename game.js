@@ -3,6 +3,7 @@ export class ConnectionsGame {
     this.maxMistakes = 4;
     this.categories = data.categories;
     this.printDate = data.print_date;
+    this.id = data.id || null;
 
     this.wordCat = new Map();
     data.categories.forEach((cat, ci) => {
@@ -81,7 +82,14 @@ export class ConnectionsGame {
 
     const ci = counts.size === 1 ? [...counts.keys()][0] : -1;
     const correct = ci > -1 && !this.solved[ci];
-    this.guesses.push({ key, oneAway: !correct && oneAway });
+    const categories = this.selected.map((w) => this.wordCat.get(w));
+    this.guesses.push({
+      key,
+      words: [...this.selected],
+      categories,
+      oneAway: !correct && oneAway,
+      correct,
+    });
     if (correct) return this._solve(ci);
     return this._wrong(oneAway);
   }
@@ -97,15 +105,27 @@ export class ConnectionsGame {
     return { type: 'solved', category: ci };
   }
 
+  canGiveUp() { return !this.over && this.mistakes === 0; }
+
+  giveUp() {
+    if (!this.canGiveUp()) return { type: 'noop' };
+    this.over = true;
+    this.categories.forEach((_, ci) => { if (!this.solved[ci]) this.revealed[ci] = true; });
+    this.order = [];
+    this.deselect();
+    return { type: 'gave-up' };
+  }
+
   _wrong(oneAway) {
-    this.mistakes = Math.max(0, this.mistakes - 1);
-    if (this.mistakes === 0) {
-      this.over = true;
-      this.categories.forEach((_, ci) => { if (!this.solved[ci]) this.revealed[ci] = true; });
-      this.order = [];
-      this.deselect();
-      return { type: 'lost', oneAway };
+    const wasOut = this.mistakes === 0;
+    if (this.mistakes > 0) {
+      this.mistakes--;
     }
-    return { type: 'wrong', oneAway };
+
+    if (!wasOut && this.mistakes === 0) {
+      this.outOfMistakes = true;
+      return { type: 'out-of-mistakes', oneAway };
+    }
+    return { type: 'wrong', oneAway, outOfMistakes: this.mistakes === 0 };
   }
 }
