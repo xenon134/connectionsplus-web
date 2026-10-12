@@ -12,6 +12,7 @@ const el = {
   organize: document.getElementById('organize'),
   submit: document.getElementById('submit'),
   giveup: document.getElementById('giveup'),
+  giveupRow: document.getElementById('giveup-row'),
   stats: document.getElementById('stats-btn'),
   date: document.getElementById('date'),
   prev: document.getElementById('prev'),
@@ -37,6 +38,27 @@ function showToast(msg) {
 }
 
 const CACHE_PREFIX = 'connections:v1:';
+const PROGRESS_PREFIX = 'connections:progress:';
+
+function progressKey(key) { return PROGRESS_PREFIX + key; }
+
+function saveProgress() {
+  if (!game) return;
+  const key = currentDate || game.printDate;
+  if (!key) return;
+  try {
+    localStorage.setItem(progressKey(key), JSON.stringify(game.serialize()));
+    localStorage.setItem('connections:last_date', key);
+  } catch { }
+}
+
+function loadProgress(key) {
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(progressKey(key));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function dateString(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
@@ -74,6 +96,16 @@ async function fetchPuzzle(dateStr) {
       return data;
     } catch { }
   }
+  try {
+    const res = await fetch('puzzletoday.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (data.print_date === dateStr || !dateStr)) {
+        cacheSet(dateStr, data);
+        return data;
+      }
+    }
+  } catch { }
   return null;
 }
 
@@ -83,6 +115,9 @@ async function loadDate(dateStr) {
   const data = await fetchPuzzle(dateStr);
   if (!data) return false;
   currentDate = dateStr;
+  try {
+    localStorage.setItem('connections:last_date', dateStr);
+  } catch { }
   init(data);
   return true;
 }
@@ -94,6 +129,11 @@ async function goTo(dateStr) {
 
 function init(data) {
   game = new ConnectionsGame(data);
+  const key = currentDate || game.printDate;
+  const saved = loadProgress(key);
+  if (saved) {
+    game.restore(saved);
+  }
   const d = new Date(game.printDate + 'T00:00:00');
   el.date.textContent = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   closeResultsModal();
@@ -106,6 +146,7 @@ function render() {
   renderDots();
   updateControls();
   fitTiles();
+  saveProgress();
 }
 
 function fits(node) {
@@ -126,18 +167,39 @@ function fitTiles() {
 }
 
 function renderSolved() {
-  el.solved.innerHTML = '';
-  game.categories.forEach((cat, ci) => {
-    if (game.isSolved(ci) || game.isRevealed(ci)) {
-      el.solved.appendChild(solvedBar(ci, cat, game.isRevealed(ci)));
+  const currentBars = new Map();
+  el.solved.querySelectorAll('.solved').forEach((bar) => {
+    currentBars.set(Number(bar.dataset.ci), bar);
+  });
+
+  const order = game.solvedOrder || [];
+  order.forEach((ci) => {
+    let bar = currentBars.get(ci);
+    if (!bar) {
+      const cat = game.categories[ci];
+      bar = solvedBar(ci, cat, game.isRevealed(ci), true);
+      el.solved.appendChild(bar);
+    } else {
+      bar.classList.remove('pop');
+      el.solved.appendChild(bar);
+    }
+  });
+
+  currentBars.forEach((bar, ci) => {
+    if (!order.includes(ci)) {
+      bar.remove();
     }
   });
 }
 
-function solvedBar(ci, cat, reveal) {
+function solvedBar(ci, cat, reveal, pop = false) {
   const bar = document.createElement('div');
-  bar.className = 'solved' + (reveal ? ' solved--reveal' : '');
+  bar.dataset.ci = String(ci);
+  bar.className = 'solved' + (reveal ? ' solved--reveal' : '') + (pop ? ' pop' : '');
   bar.style.background = COLORS[ci];
+  if (pop) {
+    bar.addEventListener('animationend', () => bar.classList.remove('pop'), { once: true });
+  }
 
   const title = document.createElement('div');
   title.className = 'solved__title';
@@ -183,7 +245,9 @@ function updateControls() {
   el.organize.classList.toggle('is-active', !el.organize.disabled);
 
   const canGiveUp = game.canGiveUp();
-  el.giveup.hidden = !canGiveUp;
+  if (el.giveupRow) {
+    el.giveupRow.hidden = !canGiveUp;
+  }
   el.giveup.disabled = !canGiveUp;
   el.giveup.classList.toggle('is-active', canGiveUp);
 }
@@ -192,6 +256,7 @@ function onTileClick(word, tile) {
   game.toggle(word);
   tile.classList.toggle('is-selected', game.isSelected(word));
   updateControls();
+  saveProgress();
 }
 
 function onShuffle() {
@@ -349,9 +414,26 @@ if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => { if (game) fitTiles(); });
 }
 
-loadDate(todayString()).then((ok) => {
-  if (!ok) {
-    el.tiles.innerHTML =
-      '<div class="load-error">Could not load the puzzle. Put it at <code>puzzle/&lt;date&gt;.json</code> or check that the NYT service is reachable, then reload.</div>';
-  }
-});
+async function start() {
+  const lastDate = localStorage.getItem('connections:last_date');
+  if (lastDate && await loadDate(lastDate)) return;
+  if (await loadDate(todayString())) return;
+
+  try {
+    const res = await fetch('puzzletoday.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.categories)) {
+        currentDate = data.print_date || '2026-10-10';
+        cacheSet(currentDate, data);
+        init(data);
+        return;
+      }
+    }
+  } catch { }
+
+  el.tiles.innerHTML =
+    '<div class="load-error">Could not load the puzzle. Put it at <code>puzzle/&lt;date&gt;.json</code> or check that the NYT service is reachable, then reload.</div>';
+}
+
+start();

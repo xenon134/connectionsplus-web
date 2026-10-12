@@ -21,8 +21,10 @@ export class ConnectionsGame {
     this.guesses = [];
     this.solved = data.categories.map(() => false);
     this.revealed = data.categories.map(() => false);
+    this.solvedOrder = [];
     this.mistakes = this.maxMistakes;
     this.over = false;
+    this.outOfMistakes = false;
   }
 
   isSolved(ci) { return this.solved[ci]; }
@@ -52,7 +54,6 @@ export class ConnectionsGame {
       const j = Math.floor(Math.random() * (i + 1));
       [this.order[i], this.order[j]] = [this.order[j], this.order[i]];
     }
-    this.deselect();
   }
 
   organize() {
@@ -96,6 +97,9 @@ export class ConnectionsGame {
 
   _solve(ci) {
     this.solved[ci] = true;
+    if (!this.solvedOrder.includes(ci)) {
+      this.solvedOrder.push(ci);
+    }
     this.order = this.order.filter((w) => this.wordCat.get(w) !== ci);
     this.deselect();
     if (this.solved.every(Boolean)) {
@@ -110,7 +114,14 @@ export class ConnectionsGame {
   giveUp() {
     if (!this.canGiveUp()) return { type: 'noop' };
     this.over = true;
-    this.categories.forEach((_, ci) => { if (!this.solved[ci]) this.revealed[ci] = true; });
+    this.categories.forEach((_, ci) => {
+      if (!this.solved[ci]) {
+        this.revealed[ci] = true;
+        if (!this.solvedOrder.includes(ci)) {
+          this.solvedOrder.push(ci);
+        }
+      }
+    });
     this.order = [];
     this.deselect();
     return { type: 'gave-up' };
@@ -127,5 +138,37 @@ export class ConnectionsGame {
       return { type: 'out-of-mistakes', oneAway };
     }
     return { type: 'wrong', oneAway, outOfMistakes: this.mistakes === 0 };
+  }
+
+  serialize() {
+    return {
+      order: [...this.order],
+      selected: [...this.selected],
+      solved: [...this.solved],
+      revealed: [...this.revealed],
+      solvedOrder: [...this.solvedOrder],
+      mistakes: this.mistakes,
+      guesses: this.guesses.map((g) => ({ ...g })),
+      over: this.over,
+      outOfMistakes: this.outOfMistakes,
+    };
+  }
+
+  restore(saved) {
+    if (!saved) return;
+    if (Array.isArray(saved.order)) this.order = [...saved.order];
+    if (Array.isArray(saved.selected)) this.selected = [...saved.selected];
+    if (Array.isArray(saved.solved)) this.solved = [...saved.solved];
+    if (Array.isArray(saved.revealed)) this.revealed = [...saved.revealed];
+    if (Array.isArray(saved.solvedOrder)) {
+      this.solvedOrder = [...saved.solvedOrder];
+    } else {
+      this.solvedOrder = [];
+      this.solved.forEach((s, ci) => { if (s) this.solvedOrder.push(ci); });
+    }
+    if (typeof saved.mistakes === 'number') this.mistakes = saved.mistakes;
+    if (Array.isArray(saved.guesses)) this.guesses = saved.guesses.map((g) => ({ ...g }));
+    if (typeof saved.over === 'boolean') this.over = saved.over;
+    if (typeof saved.outOfMistakes === 'boolean') this.outOfMistakes = saved.outOfMistakes;
   }
 }
