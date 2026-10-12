@@ -16,7 +16,8 @@ export class ConnectionsGame {
     });
     flat.sort((a, b) => a.position - b.position);
 
-    this.order = flat.map((t) => t.content);
+    this.initialOrder = flat.map((t) => t.content);
+    this.order = [...this.initialOrder];
     this.selected = [];
     this.guesses = [];
     this.solved = data.categories.map(() => false);
@@ -65,15 +66,15 @@ export class ConnectionsGame {
   submit() {
     if (!this.canSubmit()) return { type: 'noop' };
 
-    const group = [...this.selected].sort();
-    const key = group.join('\u0001');
-    const prev = this.guesses.find((g) => g.key === key);
+    const words = [...this.selected];
+    const key = [...words].sort().join('\u0001');
+    const prev = this.guesses.find((g) => [...g].sort().join('\u0001') === key);
     if (prev) {
-      return prev.oneAway ? { type: 'one-away' } : { type: 'already-guessed' };
+      return this._isOneAway(prev) ? { type: 'one-away' } : { type: 'already-guessed' };
     }
 
     const counts = new Map();
-    this.selected.forEach((w) => {
+    words.forEach((w) => {
       const ci = this.wordCat.get(w);
       counts.set(ci, (counts.get(ci) || 0) + 1);
     });
@@ -83,16 +84,21 @@ export class ConnectionsGame {
 
     const ci = counts.size === 1 ? [...counts.keys()][0] : -1;
     const correct = ci > -1 && !this.solved[ci];
-    const categories = this.selected.map((w) => this.wordCat.get(w));
-    this.guesses.push({
-      key,
-      words: [...this.selected],
-      categories,
-      oneAway: !correct && oneAway,
-      correct,
-    });
+    this.guesses.push(words);
     if (correct) return this._solve(ci);
     return this._wrong(oneAway);
+  }
+
+  _isOneAway(words) {
+    const counts = new Map();
+    words.forEach((w) => {
+      const ci = this.wordCat.get(w);
+      counts.set(ci, (counts.get(ci) || 0) + 1);
+    });
+    for (const [ci, n] of counts) {
+      if (!this.solved[ci] && n === 3) return true;
+    }
+    return false;
   }
 
   _solve(ci) {
@@ -111,8 +117,7 @@ export class ConnectionsGame {
 
   canGiveUp() { return !this.over && this.mistakes === 0; }
 
-  giveUp() {
-    if (!this.canGiveUp()) return { type: 'noop' };
+  _revealRemaining() {
     this.over = true;
     this.categories.forEach((_, ci) => {
       if (!this.solved[ci]) {
@@ -124,6 +129,11 @@ export class ConnectionsGame {
     });
     this.order = [];
     this.deselect();
+  }
+
+  giveUp() {
+    if (!this.canGiveUp()) return { type: 'noop' };
+    this._revealRemaining();
     return { type: 'gave-up' };
   }
 
@@ -142,33 +152,58 @@ export class ConnectionsGame {
 
   serialize() {
     return {
-      order: [...this.order],
-      selected: [...this.selected],
-      solved: [...this.solved],
-      revealed: [...this.revealed],
-      solvedOrder: [...this.solvedOrder],
-      mistakes: this.mistakes,
-      guesses: this.guesses.map((g) => ({ ...g })),
+      guesses: this.guesses.map((g) => [...g]),
       over: this.over,
-      outOfMistakes: this.outOfMistakes,
     };
   }
 
   restore(saved) {
-    if (!saved) return;
-    if (Array.isArray(saved.order)) this.order = [...saved.order];
-    if (Array.isArray(saved.selected)) this.selected = [...saved.selected];
-    if (Array.isArray(saved.solved)) this.solved = [...saved.solved];
-    if (Array.isArray(saved.revealed)) this.revealed = [...saved.revealed];
-    if (Array.isArray(saved.solvedOrder)) {
-      this.solvedOrder = [...saved.solvedOrder];
-    } else {
-      this.solvedOrder = [];
-      this.solved.forEach((s, ci) => { if (s) this.solvedOrder.push(ci); });
+    if (!saved || !Array.isArray(saved.guesses)) return;
+    this.reset();
+    for (const words of saved.guesses) {
+      this._applyGuess(words);
     }
-    if (typeof saved.mistakes === 'number') this.mistakes = saved.mistakes;
-    if (Array.isArray(saved.guesses)) this.guesses = saved.guesses.map((g) => ({ ...g }));
-    if (typeof saved.over === 'boolean') this.over = saved.over;
-    if (typeof saved.outOfMistakes === 'boolean') this.outOfMistakes = saved.outOfMistakes;
+    if (saved.over && !this.over) {
+      this._revealRemaining();
+    }
+  }
+
+  reset() {
+    this.order = [...this.initialOrder];
+    this.selected = [];
+    this.guesses = [];
+    this.solved = this.categories.map(() => false);
+    this.revealed = this.categories.map(() => false);
+    this.solvedOrder = [];
+    this.mistakes = this.maxMistakes;
+    this.over = false;
+    this.outOfMistakes = false;
+  }
+
+  _applyGuess(words) {
+    this.guesses.push([...words]);
+    const counts = new Map();
+    words.forEach((w) => {
+      const ci = this.wordCat.get(w);
+      counts.set(ci, (counts.get(ci) || 0) + 1);
+    });
+    const ci = counts.size === 1 ? [...counts.keys()][0] : -1;
+    if (ci > -1 && !this.solved[ci]) {
+      this.solved[ci] = true;
+      if (!this.solvedOrder.includes(ci)) {
+        this.solvedOrder.push(ci);
+      }
+      this.order = this.order.filter((w) => this.wordCat.get(w) !== ci);
+      if (this.solved.every(Boolean)) {
+        this.over = true;
+      }
+    } else {
+      if (this.mistakes > 0) {
+        this.mistakes--;
+      }
+      if (this.mistakes === 0) {
+        this.outOfMistakes = true;
+      }
+    }
   }
 }

@@ -48,7 +48,6 @@ function saveProgress() {
   if (!key) return;
   try {
     localStorage.setItem(progressKey(key), JSON.stringify(game.serialize()));
-    localStorage.setItem('connections:last_date', key);
   } catch { }
 }
 
@@ -115,9 +114,6 @@ async function loadDate(dateStr) {
   const data = await fetchPuzzle(dateStr);
   if (!data) return false;
   currentDate = dateStr;
-  try {
-    localStorage.setItem('connections:last_date', dateStr);
-  } catch { }
   init(data);
   return true;
 }
@@ -343,8 +339,9 @@ function getOutcomeTitle() {
 function renderModalGrid() {
   el.modalGrid.innerHTML = '';
   if (!game || !game.guesses) return;
-  game.guesses.forEach((guess) => {
-    guess.categories.forEach((catIndex) => {
+  game.guesses.forEach((words) => {
+    words.forEach((w) => {
+      const catIndex = game.wordCat.get(w);
       const cell = document.createElement('div');
       cell.className = `modal__cell modal__cell--${catIndex}`;
       el.modalGrid.appendChild(cell);
@@ -355,7 +352,7 @@ function renderModalGrid() {
 function getShareText() {
   const titleLine = `Connections\n${game.id ? `Puzzle #${game.id}` : game.printDate}`;
   const gridText = game.guesses
-    .map((g) => g.categories.map((c) => CATEGORY_EMOJIS[c]).join(''))
+    .map((words) => words.map((w) => CATEGORY_EMOJIS[game.wordCat.get(w)]).join(''))
     .join('\n');
   return `${titleLine}\n${gridText}`;
 }
@@ -415,8 +412,6 @@ if (document.fonts && document.fonts.ready) {
 }
 
 async function start() {
-  const lastDate = localStorage.getItem('connections:last_date');
-  if (lastDate && await loadDate(lastDate)) return;
   if (await loadDate(todayString())) return;
 
   try {
