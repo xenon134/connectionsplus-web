@@ -185,21 +185,59 @@ function render() {
   saveProgress();
 }
 
-function fits(node) {
-  return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
+let measureCtx = null;
+
+function longestWordWidth(node, fontSize) {
+  const text = (node.textContent || '').trim();
+  if (!text) return 0;
+  const cs = getComputedStyle(node);
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  measureCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${fontSize}px ${cs.fontFamily}`;
+  const upper = cs.textTransform === 'uppercase';
+  let max = 0;
+  text.split(/\s+/).forEach((word) => {
+    const w = upper ? word.toUpperCase() : word;
+    const width = measureCtx.measureText(w).width;
+    if (width > max) max = width;
+  });
+  return max;
 }
 
-function shrinkToFit(node, base) {
-  node.style.fontSize = '';
-  for (let fs = base; fs >= 9; fs -= 0.5) {
+function contentWidth(node) {
+  const cs = getComputedStyle(node);
+  const pad = parseFloat(cs.paddingLeft || 0) + parseFloat(cs.paddingRight || 0);
+  return Math.max(0, node.clientWidth - pad);
+}
+
+// Shrink only until the longest single word fits; spaces still wrap normally.
+function shrinkToFit(node, base, min = 5) {
+  node.style.fontSize = base + 'px';
+  const avail = contentWidth(node);
+  const wordWidth = longestWordWidth(node, base);
+  let fs = base;
+  let guard = 0;
+
+  if (avail > 0 && wordWidth > avail) {
+    fs = Math.max(min, (base * avail) / wordWidth);
     node.style.fontSize = fs + 'px';
-    if (fits(node)) break;
+  }
+
+  while (node.scrollHeight > node.clientHeight + 1 && fs > min && guard++ < 200) {
+    fs = Math.max(min, fs - 0.5);
+    node.style.fontSize = fs + 'px';
   }
 }
 
 function fitTiles() {
   el.tiles.querySelectorAll('.tile').forEach((t) => shrinkToFit(t, 20));
+  el.solved.querySelectorAll('.solved__title').forEach((t) => shrinkToFit(t, 20));
   el.solved.querySelectorAll('.solved__words').forEach((w) => shrinkToFit(w, 20));
+}
+
+function fitModal() {
+  el.modalGrid.querySelectorAll('.modal__cell').forEach((c) => shrinkToFit(c, 12));
+  el.modalGrid.querySelectorAll('.modal__guess-title').forEach((t) => shrinkToFit(t, 13));
+  el.modalGrid.querySelectorAll('.modal__guess-words').forEach((w) => shrinkToFit(w, 13));
 }
 
 function renderSolved() {
@@ -361,6 +399,7 @@ function openResultsModal() {
   if (el.modalContinue) el.modalContinue.hidden = finished;
   el.modal.hidden = false;
   el.modal.setAttribute('aria-hidden', 'false');
+  fitModal();
 }
 
 function closeResultsModal() {
@@ -514,7 +553,10 @@ el.prev.addEventListener('click', () => goTo(shiftDate(currentDate || todayStrin
 el.next.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), 1)));
 
 if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(() => { if (game) fitTiles(); });
+  document.fonts.ready.then(() => {
+    if (game) fitTiles();
+    if (!el.modal.hidden) fitModal();
+  });
 }
 
 async function start() {
