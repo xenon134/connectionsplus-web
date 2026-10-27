@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,8 +20,8 @@
     <div class="topbar__right">
       <a class="btn btn--subscribe" href="#">Subscribe</a>
       <a class="btn btn--login" href="#">Log In</a>
-      <button class="iconbtn" aria-label="Display settings">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <button class="iconbtn" id="theme-btn" aria-label="Theme: System" title="Theme: System">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="4" width="19" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 20.5h7M12 17v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
     </div>
   </header>
@@ -88,6 +88,7 @@
       <div id="modal-grid" class="modal__grid"></div>
       <div class="modal__actions">
         <button type="button" id="modal-share" class="modal-btn modal-btn--share">Share</button>
+        <button type="button" id="modal-share-guesses" class="modal-btn modal-btn--guesses" hidden>Share Guesses</button>
         <button type="button" id="modal-continue" class="modal-btn modal-btn--continue">Continue Playing</button>
       </div>
     </div>

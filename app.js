@@ -14,6 +14,7 @@ const el = {
   giveup: document.getElementById('giveup'),
   giveupRow: document.getElementById('giveup-row'),
   stats: document.getElementById('stats-btn'),
+  theme: document.getElementById('theme-btn'),
   date: document.getElementById('date'),
   prev: document.getElementById('prev'),
   next: document.getElementById('next'),
@@ -23,11 +24,50 @@ const el = {
   modalClose: document.getElementById('modal-close'),
   modalGrid: document.getElementById('modal-grid'),
   modalShare: document.getElementById('modal-share'),
+  modalShareGuesses: document.getElementById('modal-share-guesses'),
   modalContinue: document.getElementById('modal-continue'),
 };
 
 let game = null;
 let toastTimer;
+
+const THEME_KEY = 'connections:theme';
+const THEMES = ['system', 'light', 'dark'];
+const THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark' };
+const THEME_ICONS = {
+  system: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="4" width="19" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 20.5h7M12 17v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  light: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  dark: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+};
+
+function getStoredTheme() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return THEMES.includes(t) ? t : 'system';
+  } catch { return 'system'; }
+}
+
+function applyTheme(theme) {
+  if (!THEMES.includes(theme)) theme = 'system';
+  document.documentElement.dataset.theme = theme;
+  if (el.theme) {
+    const label = `Theme: ${THEME_LABELS[theme]}`;
+    el.theme.setAttribute('aria-label', label);
+    el.theme.setAttribute('title', label);
+    el.theme.innerHTML = THEME_ICONS[theme];
+  }
+}
+
+function setTheme(theme) {
+  try { localStorage.setItem(THEME_KEY, theme); } catch { }
+  applyTheme(theme);
+}
+
+function cycleTheme() {
+  const current = document.documentElement.dataset.theme || 'system';
+  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+  setTheme(next);
+}
 
 function showToast(msg) {
   if (!msg) { el.toast.classList.remove('show'); return; }
@@ -314,8 +354,11 @@ function shake() {
 
 function openResultsModal() {
   if (!game) return;
+  const finished = game.over;
   el.modalTitle.textContent = getOutcomeTitle();
-  renderModalGrid();
+  renderModalGuesses();
+  if (el.modalShareGuesses) el.modalShareGuesses.hidden = !finished;
+  if (el.modalContinue) el.modalContinue.hidden = finished;
   el.modal.hidden = false;
   el.modal.setAttribute('aria-hidden', 'false');
 }
@@ -336,17 +379,62 @@ function getOutcomeTitle() {
   return 'Connections';
 }
 
-function renderModalGrid() {
+function renderModalGuesses() {
   el.modalGrid.innerHTML = '';
   if (!game || !game.guesses) return;
+
   game.guesses.forEach((words) => {
+    const cats = new Set(words.map((w) => game.wordCat.get(w)));
+    const guessCat = cats.size === 1 ? [...cats][0] : -1;
+
+    if (guessCat > -1) {
+      // Correct guess: render like a solved-category bar.
+      const bar = document.createElement('div');
+      bar.className = 'modal__guess modal__guess--category';
+      bar.style.background = COLORS[guessCat];
+
+      const title = document.createElement('div');
+      title.className = 'modal__guess-title';
+      title.textContent = game.categories[guessCat].title;
+      bar.appendChild(title);
+
+      const list = document.createElement('div');
+      list.className = 'modal__guess-words';
+      list.textContent = words.join(', ');
+      bar.appendChild(list);
+
+      el.modalGrid.appendChild(bar);
+      return;
+    }
+
+    // Incorrect guess: four word segments. They stay neutral until the game
+    // is finished, then each word shows its category colour.
+    const row = document.createElement('div');
+    row.className = 'modal__guess modal__guess--split';
     words.forEach((w) => {
-      const catIndex = game.wordCat.get(w);
+      const ci = game.wordCat.get(w);
       const cell = document.createElement('div');
-      cell.className = `modal__cell modal__cell--${catIndex}`;
-      el.modalGrid.appendChild(cell);
+      cell.className = 'modal__cell' + (game.over ? '' : ' modal__cell--neutral');
+      if (game.over) cell.style.background = COLORS[ci];
+      cell.textContent = w;
+      row.appendChild(cell);
     });
+    el.modalGrid.appendChild(row);
   });
+}
+
+function titleCase(str) {
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function getGuessesShareText() {
+  return game.guesses
+    .map((words) => words.map(titleCase).join(' '))
+    .join('\n');
 }
 
 function getShareText() {
@@ -357,31 +445,45 @@ function getShareText() {
   return `${titleLine}\n${gridText}`;
 }
 
-function shareResults() {
-  const text = getShareText();
+async function copyText(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text)
-      .then(() => showToast('Copied to clipboard'))
-      .catch(() => fallbackCopy(text));
-  } else {
-    fallbackCopy(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard');
+      return;
+    } catch { /* fall back below */ }
   }
+  if (fallbackCopy(text)) {
+    showToast('Copied to clipboard');
+  } else {
+    window.prompt('Copy your results:', text);
+  }
+}
+
+function shareResults() {
+  copyText(getShareText());
+}
+
+function shareGuesses() {
+  copyText(getGuessesShareText());
 }
 
 function fallbackCopy(text) {
   const ta = document.createElement('textarea');
   ta.value = text;
+  ta.setAttribute('readonly', '');
   ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
   ta.style.opacity = '0';
   document.body.appendChild(ta);
   ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
   try {
-    document.execCommand('copy');
-    showToast('Copied to clipboard');
-  } catch {
-    showToast('Failed to copy');
-  }
+    ok = document.execCommand('copy');
+  } catch { ok = false; }
   document.body.removeChild(ta);
+  return ok;
 }
 
 el.shuffle.addEventListener('click', onShuffle);
@@ -392,6 +494,7 @@ el.submit.addEventListener('click', onSubmit);
 el.modalClose.addEventListener('click', closeResultsModal);
 el.modalContinue.addEventListener('click', closeResultsModal);
 el.modalShare.addEventListener('click', shareResults);
+el.modalShareGuesses?.addEventListener('click', shareGuesses);
 el.modal.addEventListener('click', (e) => {
   if (e.target === el.modal) closeResultsModal();
 });
@@ -403,6 +506,9 @@ el.stats?.addEventListener('click', () => {
     openResultsModal();
   }
 });
+el.theme?.addEventListener('click', cycleTheme);
+
+applyTheme(getStoredTheme());
 
 el.prev.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), -1)));
 el.next.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), 1)));

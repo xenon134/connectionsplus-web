@@ -7,21 +7,74 @@
 :root{
   --franklin:'nyt-franklin','Libre Franklin',Arial,Helvetica,sans-serif;
   --board:624px;
+  --page-bg:#fff;
+  --surface:#fff;
+  --hover:#f2f2f0;
   --tile-bg:#EFEFE6;
+  --tile-hover:#e4e4d8;
   --tile-fg:#121212;
   --tile-sel:#5A594E;
   --tile-sel-fg:#F8F8F8;
+  --solved-fg:#121212;
   --ink:#121212;
   --muted:#5A594E;
   --muted-2:#8B8B8B;
   --line:#979797;
   --hair:#E6E6E1;
+  --primary:#000;
+  --primary-fg:#fff;
+  --primary-hover:#222;
+  --share-hover:#f8f8f8;
+}
+
+:root[data-theme="dark"]{
+  --page-bg:#121212;
+  --surface:#1f1f1f;
+  --hover:#2e2e2e;
+  --tile-bg:#2b2b26;
+  --tile-hover:#3a3a35;
+  --tile-fg:#F8F8F8;
+  --tile-sel:#5A594E;
+  --tile-sel-fg:#F8F8F8;
+  --solved-fg:#121212;
+  --ink:#F8F8F8;
+  --muted:#C7C7BF;
+  --muted-2:#8B8B8B;
+  --line:#5A5A5A;
+  --hair:#33332F;
+  --primary:#F8F8F8;
+  --primary-fg:#121212;
+  --primary-hover:#dcdcdc;
+  --share-hover:#2e2e2e;
+}
+
+@media (prefers-color-scheme: dark){
+  :root[data-theme="system"]{
+    --page-bg:#121212;
+    --surface:#1f1f1f;
+    --hover:#2e2e2e;
+    --tile-bg:#2b2b26;
+    --tile-hover:#3a3a35;
+    --tile-fg:#F8F8F8;
+    --tile-sel:#5A594E;
+    --tile-sel-fg:#F8F8F8;
+    --solved-fg:#121212;
+    --ink:#F8F8F8;
+    --muted:#C7C7BF;
+    --muted-2:#8B8B8B;
+    --line:#5A5A5A;
+    --hair:#33332F;
+    --primary:#F8F8F8;
+    --primary-fg:#121212;
+    --primary-hover:#dcdcdc;
+    --share-hover:#2e2e2e;
+  }
 }
 
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
-  background:#fff;
+  background:var(--page-bg);
   color:var(--ink);
   font-family:var(--franklin);
   -webkit-font-smoothing:antialiased;
@@ -40,7 +93,7 @@ button{font-family:inherit}
   width:36px;height:36px;border:0;border-radius:50%;background:none;color:var(--ink);
   cursor:pointer;
 }
-.iconbtn:hover{background:#f2f2f0}
+.iconbtn:hover{background:var(--hover)}
 .wordmark{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:var(--ink)}
 .wordmark__t{
   font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:30px;line-height:1;
@@ -52,8 +105,8 @@ button{font-family:inherit}
   height:34px;padding:0 14px;border-radius:3px;text-decoration:none;
   font-size:12px;font-weight:700;letter-spacing:.2px;
 }
-.btn--subscribe{background:#000;color:#fff}
-.btn--login{border:1px solid #000;color:#000;background:#fff}
+.btn--subscribe{background:var(--primary);color:var(--primary-fg)}
+.btn--login{border:1px solid var(--ink);color:var(--ink);background:var(--surface)}
 
 /* ---------- layout ---------- */
 .page{width:min(624px,calc(100% - 32px));margin:0 auto;padding:16px 0 64px}
@@ -62,7 +115,7 @@ button{font-family:inherit}
 .game-head__title{font-size:22px;font-weight:700;margin:0;letter-spacing:-.3px}
 .game-head__date{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:500;color:var(--muted);margin:2px 0 0}
 .date-nav{background:none;border:0;padding:2px 8px;color:var(--muted);font:600 18px var(--franklin);line-height:1;cursor:pointer;border-radius:4px}
-.date-nav:hover{background:#f2f2f0;color:var(--ink)}
+.date-nav:hover{background:var(--hover);color:var(--ink)}
 .game-head__actions{display:flex;gap:4px}
 
 /* ---------- board ---------- */
@@ -81,7 +134,7 @@ button{font-family:inherit}
   overflow:hidden;overflow-wrap:anywhere;
   transition:background .12s ease,color .12s ease,transform .05s ease;
 }
-.tile:hover{background:#e4e4d8}
+.tile:hover{background:var(--tile-hover)}
 .tile.is-selected{background:var(--tile-sel);color:var(--tile-sel-fg)}
 .tile:active{transform:scale(.98)}
 
@@ -89,7 +142,7 @@ button{font-family:inherit}
 .solved{
   height:80px;border-radius:6px;width:100%;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;text-transform:uppercase;color:var(--ink);
+  text-align:center;text-transform:uppercase;color:var(--solved-fg);
 }
 .solved.pop{
   animation:pop .32s cubic-bezier(.2,1.4,.4,1) both;
@@ -109,7 +162,7 @@ button{font-family:inherit}
 /* ---------- controls ---------- */
 .controls{display:flex;gap:10px;justify-content:center}
 .pill{
-  height:48px;padding:0 20px;border-radius:32px;background:#fff;border:1px solid var(--line);
+  height:48px;padding:0 20px;border-radius:32px;background:var(--surface);border:1px solid var(--line);
   color:var(--muted-2);font-size:16px;font-weight:600;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
 }
@@ -122,7 +175,7 @@ button{font-family:inherit}
 /* ---------- toast ---------- */
 .toast{
   position:fixed;left:50%;bottom:40px;transform:translate(-50%,20px);
-  background:#fff;color:var(--ink);font-size:16px;font-weight:700;
+  background:var(--surface);color:var(--ink);font-size:16px;font-weight:700;
   padding:12px 22px;border-radius:27px;border:1px solid var(--hair);
   box-shadow:0 4px 22px rgba(0,0,0,.12);opacity:0;pointer-events:none;
   transition:opacity .2s ease,transform .2s ease;
@@ -139,8 +192,8 @@ button{font-family:inherit}
 .modal-backdrop[hidden]{display:none}
 
 .modal{
-  background:#fff;border-radius:16px;padding:22px 24px 26px;
-  width:100%;max-width:340px;box-shadow:0 12px 36px rgba(0,0,0,.22);
+  background:var(--surface);border-radius:16px;padding:22px 24px 26px;
+  width:100%;max-width:380px;box-shadow:0 12px 36px rgba(0,0,0,.22);
   display:flex;flex-direction:column;
 }
 .modal__header{display:flex;align-items:center;justify-content:space-between}
@@ -149,19 +202,31 @@ button{font-family:inherit}
   background:none;border:0;padding:4px;cursor:pointer;color:var(--ink);
   display:inline-flex;align-items:center;justify-content:center;border-radius:50%;
 }
-.modal__close:hover{background:#f2f2f0}
+.modal__close:hover{background:var(--hover)}
 
 .modal__grid{
-  display:grid;grid-template-columns:repeat(4,42px);gap:8px;
-  justify-content:center;margin:26px auto 30px;
+  display:flex;flex-direction:column;gap:8px;
+  width:100%;margin:22px auto 26px;max-height:56vh;overflow-y:auto;
+}
+.modal__guess{width:100%;border-radius:6px;overflow:hidden}
+.modal__guess--category{
+  min-height:56px;padding:7px 10px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;text-transform:uppercase;color:var(--solved-fg);
+}
+.modal__guess--split{display:flex;gap:6px}
+.modal__guess-title{font-size:13px;font-weight:700;line-height:17px;width:100%}
+.modal__guess-words{
+  font-size:13px;font-weight:500;line-height:17px;margin-top:1px;
+  width:100%;overflow-wrap:anywhere;
 }
 .modal__cell{
-  width:42px;height:42px;border-radius:8px;
+  flex:1;min-width:0;min-height:56px;border-radius:6px;padding:6px 4px;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-size:12px;font-weight:700;line-height:15px;text-transform:uppercase;
+  overflow-wrap:anywhere;color:var(--solved-fg);
 }
-.modal__cell--0{background:#FFDB58}
-.modal__cell--1{background:#50C878}
-.modal__cell--2{background:#468FEA}
-.modal__cell--3{background:#BA81C5}
+.modal__cell--neutral{background:var(--tile-bg);color:var(--tile-fg)}
 
 .modal__actions{display:flex;align-items:center;justify-content:center;gap:12px}
 .modal-btn{
@@ -169,17 +234,18 @@ button{font-family:inherit}
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
   user-select:none;transition:transform .05s ease;
 }
+.modal-btn[hidden]{display:none}
 .modal-btn:active{transform:scale(.97)}
-.modal-btn--share{background:#fff;border:1.5px solid #000;color:#000}
-.modal-btn--share:hover{background:#f8f8f8}
-.modal-btn--continue{background:#000;border:1.5px solid #000;color:#fff}
-.modal-btn--continue:hover{background:#222}
+.modal-btn--share{background:var(--surface);border:1.5px solid var(--ink);color:var(--ink)}
+.modal-btn--share:hover{background:var(--share-hover)}
+.modal-btn--continue,.modal-btn--guesses{background:var(--primary);border:1.5px solid var(--primary);color:var(--primary-fg)}
+.modal-btn--continue:hover,.modal-btn--guesses:hover{background:var(--primary-hover)}
 
 .controls-sub{display:flex;justify-content:center;margin-top:12px;width:100%}
 .controls-sub[hidden]{display:none}
 
 .pill--giveup{border-color:var(--ink);color:var(--ink);font-weight:600}
-.pill--giveup:hover{background:#f2f2f0}
+.pill--giveup:hover{background:var(--hover)}
 
 @media (max-width:680px){
   .game-head{flex-direction:column;align-items:flex-start;gap:8px}
