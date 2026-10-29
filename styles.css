@@ -153,6 +153,11 @@ button{font-family:inherit}
 @keyframes pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.02)}100%{transform:scale(1);opacity:1}}
 .tile.shake{animation:shake .2s ease-in 1}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes tile-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.tile.bounce1{animation:.3s ease-in 0s 1 normal none running tile-bounce}
+.tile.bounce2{animation:.3s ease-in .1s 1 normal none running tile-bounce}
+.tile.bounce3{animation:.3s ease-in .2s 1 normal none running tile-bounce}
+.tile.bounce4{animation:.3s ease-in .3s 1 normal none running tile-bounce}
 
 /* ---------- mistakes ---------- */
 .mistakes{display:flex;align-items:center;justify-content:center;margin:24px 0;color:var(--muted);font-size:16px;font-weight:500}

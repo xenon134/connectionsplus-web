@@ -30,6 +30,9 @@ const el = {
 
 let game = null;
 let toastTimer;
+let animating = false;
+
+const BOUNCE_CLASSES = ['bounce1', 'bounce2', 'bounce3', 'bounce4'];
 
 const THEME_KEY = 'connections:theme';
 const THEMES = ['system', 'light', 'dark'];
@@ -327,6 +330,7 @@ function updateControls() {
 }
 
 function onTileClick(word, tile) {
+  if (animating) return;
   game.toggle(word);
   tile.classList.toggle('is-selected', game.isSelected(word));
   updateControls();
@@ -334,34 +338,69 @@ function onTileClick(word, tile) {
 }
 
 function onShuffle() {
-  if (!game.canShuffle()) return;
+  if (animating || !game.canShuffle()) return;
   game.shuffle();
   render();
 }
 
 function onDeselect() {
-  if (!game.canDeselect()) return;
+  if (animating || !game.canDeselect()) return;
   game.deselect();
   render();
 }
 
 function onOrganize() {
-  if (!game.canOrganize()) return;
+  if (animating || !game.canOrganize()) return;
   game.organize();
   render();
 }
 
 function onGiveUp() {
-  if (!game.canGiveUp()) return;
+  if (animating || !game.canGiveUp()) return;
   game.giveUp();
   render();
   setTimeout(() => openResultsModal(), 400);
 }
 
+function playBounce(tiles) {
+  tiles.forEach((tile, i) => {
+    const cls = BOUNCE_CLASSES[Math.min(i, BOUNCE_CLASSES.length - 1)];
+    tile.classList.remove(...BOUNCE_CLASSES);
+    void tile.offsetWidth;
+    tile.classList.add(cls);
+    tile.addEventListener('animationend', () => tile.classList.remove(cls), { once: true });
+  });
+}
+
 function onSubmit() {
-  if (!game.canSubmit()) return;
+  if (animating || !game.canSubmit()) return;
+
+  const selectedTiles = [...el.tiles.querySelectorAll('.tile.is-selected')];
   const result = game.submit();
 
+  if (result.type === 'one-away') {
+    showToast('One away');
+    return;
+  }
+  if (result.type === 'already-guessed') {
+    showToast('Already Guessed');
+    return;
+  }
+  if (result.type === 'noop') return;
+
+  // Same flow as NYT: bounce the selected cards first, then resolve.
+  const correct = result.type === 'won' || result.type === 'solved';
+  const wait = correct ? 1200 : 1000;
+
+  animating = true;
+  playBounce(selectedTiles);
+  setTimeout(() => {
+    animating = false;
+    finishSubmit(result);
+  }, wait);
+}
+
+function finishSubmit(result) {
   if (result.type === 'wrong') {
     render();
     if (result.oneAway) showToast('One away');
@@ -371,10 +410,6 @@ function onSubmit() {
     if (result.oneAway) showToast('One away');
     shake();
     setTimeout(() => openResultsModal(), 700);
-  } else if (result.type === 'one-away') {
-    showToast('One away');
-  } else if (result.type === 'already-guessed') {
-    showToast('Already Guessed');
   } else if (result.type === 'won') {
     render();
     setTimeout(() => openResultsModal(), 700);
@@ -541,6 +576,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !el.modal.hidden) closeResultsModal();
 });
 el.stats?.addEventListener('click', () => {
+  if (animating) return;
   if (game && (game.over || game.guesses.length > 0)) {
     openResultsModal();
   }
@@ -549,8 +585,14 @@ el.theme?.addEventListener('click', cycleTheme);
 
 applyTheme(getStoredTheme());
 
-el.prev.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), -1)));
-el.next.addEventListener('click', () => goTo(shiftDate(currentDate || todayString(), 1)));
+el.prev.addEventListener('click', () => {
+  if (animating) return;
+  goTo(shiftDate(currentDate || todayString(), -1));
+});
+el.next.addEventListener('click', () => {
+  if (animating) return;
+  goTo(shiftDate(currentDate || todayString(), 1));
+});
 
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => {
