@@ -10,6 +10,7 @@ import {
 } from './data.js';
 import { initShell, showToast } from './shell.js';
 import { getShareText, getGuessesShareText, copyText } from './share.js';
+import { initPuzzlesList, closePuzzlesModal } from './puzzles.js';
 
 const COLORS = ['#F9DF6D', '#A0C35A', '#B0C4EF', '#BA81C5'];
 
@@ -71,6 +72,7 @@ function init(data) {
   }
   el.date.textContent = formatPuzzleDate(game.printDate);
   closeResultsModal();
+  closePuzzlesModal();
   render();
 }
 
@@ -321,6 +323,7 @@ function shake() {
 }
 
 function openResultsModal() {
+  closePuzzlesModal();
   if (!game) return;
   const finished = game.over;
   el.modalTitle.textContent = getOutcomeTitle();
@@ -431,6 +434,12 @@ el.stats?.addEventListener('click', () => {
 });
 
 initShell();
+initPuzzlesList({
+  getCurrentDate: () => currentDate,
+  isBusy: () => animating,
+  onSelect: (date) => goTo(date),
+  onOpen: closeResultsModal,
+});
 
 el.prev.addEventListener('click', () => {
   if (animating) return;

@@ -82,8 +82,8 @@
         <h1 class="game-head__title">Connections</h1>
         <div class="game-head__date">
           <button type="button" class="date-nav" id="prev" aria-label="Previous puzzle">&lt;</button>
-          <span id="date">October 10, 2026</span>
-          <button type="button" class="date-nav" id="next" aria-label="Next puzzle">&gt;</button>
+          <button type="button" class="date-display" id="date" aria-haspopup="dialog" aria-controls="puzzles-modal" aria-expanded="false">October 10, 2026</button>
+          <button type="button" class="date-nav" id="next" aria-label="New Game" title="New Game">&gt;</button>
         </div>
       </div>
       <div class="game-head__actions">
@@ -141,6 +141,20 @@
         <button type="button" id="modal-share-guesses" class="modal-btn modal-btn--guesses" hidden>Share Guesses</button>
         <button type="button" id="modal-continue" class="modal-btn modal-btn--continue">Continue Playing</button>
       </div>
+    </div>
+  </div>
+
+  <div id="puzzles-modal" class="modal-backdrop" aria-hidden="true" hidden>
+    <div class="modal puzzles-modal" role="dialog" aria-modal="true" aria-labelledby="puzzles-title">
+      <div class="modal__header">
+        <h2 id="puzzles-title" class="modal__title">Puzzles</h2>
+        <button type="button" id="puzzles-close" class="modal__close" aria-label="Close dialog">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div id="puzzles-list" class="puzzles-list"></div>
     </div>
   </div>
 
