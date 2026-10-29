@@ -1,7 +1,17 @@
 import { ConnectionsGame } from './game.js';
+import {
+  fetchPuzzle,
+  fetchPuzzletoday,
+  loadProgress,
+  saveProgress as writeProgress,
+  todayString,
+  shiftDate,
+  formatPuzzleDate,
+} from './data.js';
+import { initShell, showToast } from './shell.js';
+import { getShareText, getGuessesShareText, copyText } from './share.js';
 
 const COLORS = ['#F9DF6D', '#A0C35A', '#B0C4EF', '#BA81C5'];
-const CATEGORY_EMOJIS = ['🟨', '🟩', '🟦', '🟪'];
 
 const el = {
   tiles: document.getElementById('tiles'),
@@ -14,11 +24,9 @@ const el = {
   giveup: document.getElementById('giveup'),
   giveupRow: document.getElementById('giveup-row'),
   stats: document.getElementById('stats-btn'),
-  theme: document.getElementById('theme-btn'),
   date: document.getElementById('date'),
   prev: document.getElementById('prev'),
   next: document.getElementById('next'),
-  toast: document.getElementById('toast'),
   modal: document.getElementById('results-modal'),
   modalTitle: document.getElementById('modal-title'),
   modalClose: document.getElementById('modal-close'),
@@ -29,129 +37,17 @@ const el = {
 };
 
 let game = null;
-let toastTimer;
+let currentDate = null;
 let animating = false;
 
 const BOUNCE_CLASSES = ['bounce1', 'bounce2', 'bounce3', 'bounce4'];
 
-const THEME_KEY = 'connections:theme';
-const THEMES = ['system', 'light', 'dark'];
-const THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark' };
-const THEME_ICONS = {
-  system: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="4" width="19" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 20.5h7M12 17v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-  light: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-  dark: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-};
-
-function getStoredTheme() {
-  try {
-    const t = localStorage.getItem(THEME_KEY);
-    return THEMES.includes(t) ? t : 'system';
-  } catch { return 'system'; }
-}
-
-function applyTheme(theme) {
-  if (!THEMES.includes(theme)) theme = 'system';
-  document.documentElement.dataset.theme = theme;
-  if (el.theme) {
-    const label = `Theme: ${THEME_LABELS[theme]}`;
-    el.theme.setAttribute('aria-label', label);
-    el.theme.setAttribute('title', label);
-    el.theme.innerHTML = THEME_ICONS[theme];
-  }
-}
-
-function setTheme(theme) {
-  try { localStorage.setItem(THEME_KEY, theme); } catch { }
-  applyTheme(theme);
-}
-
-function cycleTheme() {
-  const current = document.documentElement.dataset.theme || 'system';
-  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
-  setTheme(next);
-}
-
-function showToast(msg) {
-  if (!msg) { el.toast.classList.remove('show'); return; }
-  el.toast.textContent = msg;
-  el.toast.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.toast.classList.remove('show'), 1400);
-}
-
-const CACHE_PREFIX = 'connections:v1:';
-const PROGRESS_PREFIX = 'connections:progress:';
-
-function progressKey(key) { return PROGRESS_PREFIX + key; }
-
 function saveProgress() {
   if (!game) return;
   const key = currentDate || game.printDate;
-  if (!key) return;
-  try {
-    localStorage.setItem(progressKey(key), JSON.stringify(game.serialize()));
-  } catch { }
+  if (key) writeProgress(key, game.serialize());
 }
 
-function loadProgress(key) {
-  if (!key) return null;
-  try {
-    const raw = localStorage.getItem(progressKey(key));
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function pad(n) { return String(n).padStart(2, '0'); }
-function dateString(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
-function todayString() { return dateString(new Date()); }
-function shiftDate(dateStr, delta) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + delta);
-  return dateString(d);
-}
-const cacheKey = (dateStr) => CACHE_PREFIX + dateStr;
-
-function cacheGet(dateStr) {
-  try {
-    const raw = localStorage.getItem(cacheKey(dateStr));
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function cacheSet(dateStr, data) {
-  try { localStorage.setItem(cacheKey(dateStr), JSON.stringify(data)); } catch { }
-}
-
-async function fetchPuzzle(dateStr) {
-  const cached = cacheGet(dateStr);
-  if (cached) return cached;
-
-  const urls = [`puzzle/${dateStr}.json`];
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!data || !Array.isArray(data.categories)) continue;
-      cacheSet(dateStr, data);
-      return data;
-    } catch { }
-  }
-  try {
-    const res = await fetch('puzzletoday.json');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && (data.print_date === dateStr || !dateStr)) {
-        cacheSet(dateStr, data);
-        return data;
-      }
-    }
-  } catch { }
-  return null;
-}
-
-let currentDate = null;
 
 async function loadDate(dateStr) {
   const data = await fetchPuzzle(dateStr);
@@ -173,8 +69,7 @@ function init(data) {
   if (saved) {
     game.restore(saved);
   }
-  const d = new Date(game.printDate + 'T00:00:00');
-  el.date.textContent = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  el.date.textContent = formatPuzzleDate(game.printDate);
   closeResultsModal();
   render();
 }
@@ -497,37 +392,8 @@ function renderModalGuesses() {
   });
 }
 
-function titleCase(str) {
-  return str
-    .trim()
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
-}
-
-function getGuessesShareText() {
-  return game.guesses
-    .map((words) => words.map(titleCase).join(' '))
-    .join('\n');
-}
-
-function getShareText() {
-  const titleLine = `Connections\n${game.id ? `Puzzle #${game.id}` : game.printDate}`;
-  const gridText = game.guesses
-    .map((words) => words.map((w) => CATEGORY_EMOJIS[game.wordCat.get(w)]).join(''))
-    .join('\n');
-  return `${titleLine}\n${gridText}`;
-}
-
-async function copyText(text) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast('Copied to clipboard');
-      return;
-    } catch { /* fall back below */ }
-  }
-  if (fallbackCopy(text)) {
+async function copyAndToast(text) {
+  if (await copyText(text)) {
     showToast('Copied to clipboard');
   } else {
     window.prompt('Copy your results:', text);
@@ -535,29 +401,11 @@ async function copyText(text) {
 }
 
 function shareResults() {
-  copyText(getShareText());
+  copyAndToast(getShareText(game));
 }
 
 function shareGuesses() {
-  copyText(getGuessesShareText());
-}
-
-function fallbackCopy(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.setAttribute('readonly', '');
-  ta.style.position = 'fixed';
-  ta.style.top = '-1000px';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  ta.setSelectionRange(0, text.length);
-  let ok = false;
-  try {
-    ok = document.execCommand('copy');
-  } catch { ok = false; }
-  document.body.removeChild(ta);
-  return ok;
+  copyAndToast(getGuessesShareText(game));
 }
 
 el.shuffle.addEventListener('click', onShuffle);
@@ -581,9 +429,8 @@ el.stats?.addEventListener('click', () => {
     openResultsModal();
   }
 });
-el.theme?.addEventListener('click', cycleTheme);
 
-applyTheme(getStoredTheme());
+initShell();
 
 el.prev.addEventListener('click', () => {
   if (animating) return;
@@ -604,18 +451,12 @@ if (document.fonts && document.fonts.ready) {
 async function start() {
   if (await loadDate(todayString())) return;
 
-  try {
-    const res = await fetch('puzzletoday.json');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.categories)) {
-        currentDate = data.print_date || '2026-10-10';
-        cacheSet(currentDate, data);
-        init(data);
-        return;
-      }
-    }
-  } catch { }
+  const data = await fetchPuzzletoday();
+  if (data) {
+    currentDate = data.print_date || '2026-10-10';
+    init(data);
+    return;
+  }
 
   el.tiles.innerHTML =
     '<div class="load-error">Could not load the puzzle. Put it at <code>puzzle/&lt;date&gt;.json</code> or check that the NYT service is reachable, then reload.</div>';
