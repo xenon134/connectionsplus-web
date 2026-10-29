@@ -1,7 +1,15 @@
 import { ConnectionsGame } from './game.js';
-import { fetchPuzzle, loadProgress, formatPuzzleDate } from './data.js';
+import {
+  fetchPuzzle,
+  loadProgress,
+  formatPuzzleDate,
+  shiftDate,
+  todayString,
+} from './data.js';
 
-const DATE_FILE_RE = /^(\d{4}-\d{2}-\d{2})\.json$/;
+// Connections #1 was published on June 12, 2023.
+const LAUNCH_DATE = '2023-06-12';
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const el = {
   date: document.getElementById('date'),
@@ -18,24 +26,23 @@ let request = 0;
 
 const metaCache = new Map();
 
-async function listPuzzleDates() {
-  const dates = new Set();
+function puzzleNumber(date) {
+  const [y, m, d] = date.split('-').map(Number);
+  const [ly, lm, ld] = LAUNCH_DATE.split('-').map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ly, lm - 1, ld)) / DAY_MS) + 1;
+}
 
-  try {
-    const res = await fetch('puzzle/', { cache: 'no-store' });
-    if (res.ok) {
-      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-      doc.querySelectorAll('a[href]').forEach((a) => {
-        const m = (a.getAttribute('href') || '').match(DATE_FILE_RE);
-        if (m) dates.add(m[1]);
-      });
-    }
-  } catch { }
+function listPuzzleDates() {
+  const end = shiftDate(todayString(), 1);
+  const [sy, sm, sd] = LAUNCH_DATE.split('-').map(Number);
+  const [ey, em, ed] = end.split('-').map(Number);
+  const dates = [];
 
-  const current = getCurrentDate();
-  if (current) dates.add(current);
+  for (let t = Date.UTC(ey, em - 1, ed); t >= Date.UTC(sy, sm - 1, sd); t -= DAY_MS) {
+    dates.push(new Date(t).toISOString().slice(0, 10));
+  }
 
-  return [...dates].sort((a, b) => b.localeCompare(a));
+  return dates;
 }
 
 async function getPuzzleMeta(date) {
@@ -45,12 +52,7 @@ async function getPuzzleMeta(date) {
   return data;
 }
 
-function getPuzzleStatus(date, data) {
-  const saved = loadProgress(date);
-  if (!saved || !Array.isArray(saved.guesses) || saved.guesses.length === 0) {
-    return { kind: 'none', text: '', label: 'Not played' };
-  }
-
+function getPuzzleStatus(saved, data) {
   const state = new ConnectionsGame(data);
   state.restore(saved);
   const solved = state.solved.filter(Boolean).length;
@@ -70,7 +72,7 @@ function getPuzzleStatus(date, data) {
   };
 }
 
-function makeRow({ date, data, status }) {
+function makeRow({ date, number, status }) {
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'puzzle-row';
@@ -80,11 +82,12 @@ function makeRow({ date, data, status }) {
   const copy = document.createElement('span');
   copy.className = 'puzzle-row__text';
 
+  const dateText = formatPuzzleDate(date);
   const dateEl = document.createElement('span');
   dateEl.className = 'puzzle-row__date';
-  dateEl.textContent = formatPuzzleDate(date);
+  dateEl.textContent = dateText;
 
-  const numText = data && data.id != null ? `Connections #${data.id}` : 'Connections';
+  const numText = `Connections #${number}`;
   const numEl = document.createElement('span');
   numEl.className = 'puzzle-row__num';
   numEl.textContent = numText;
@@ -100,7 +103,7 @@ function makeRow({ date, data, status }) {
     row.appendChild(score);
   }
 
-  row.setAttribute('aria-label', `${formatPuzzleDate(date)}, ${numText}, ${status.label}`);
+  row.setAttribute('aria-label', `${dateText}, ${numText}, ${status.label}`);
   row.addEventListener('click', async () => {
     close();
     await onSelect(date);
@@ -120,7 +123,9 @@ function render(entries, emptyMessage) {
     return;
   }
 
-  entries.forEach((entry) => el.list.appendChild(makeRow(entry)));
+  const fragment = document.createDocumentFragment();
+  entries.forEach((entry) => fragment.appendChild(makeRow(entry)));
+  el.list.appendChild(fragment);
 }
 
 async function open() {
@@ -134,19 +139,39 @@ async function open() {
   el.close?.focus();
 
   const token = ++request;
-  const dates = await listPuzzleDates();
-  const metas = await Promise.all(dates.map((date) => getPuzzleMeta(date)));
+  const dates = listPuzzleDates();
+
+  const savedByDate = new Map();
+  for (const date of dates) {
+    const saved = loadProgress(date);
+    if (saved && Array.isArray(saved.guesses) && saved.guesses.length) {
+      savedByDate.set(date, saved);
+    }
+  }
+
+  const dataByDate = new Map();
+  await Promise.all([...savedByDate.keys()].map(async (date) => {
+    const data = await getPuzzleMeta(date);
+    if (data) dataByDate.set(date, data);
+  }));
 
   if (token !== request || el.modal.hidden) return;
 
-  const entries = dates
-    .map((date, i) => (metas[i] ? { date, data: metas[i], status: getPuzzleStatus(date, metas[i]) } : null))
-    .filter(Boolean);
+  const entries = dates.map((date) => {
+    const saved = savedByDate.get(date);
+    let status = { kind: 'none', text: '', label: 'Not played' };
 
-  render(
-    entries,
-    dates.length ? 'Could not load the puzzle list.' : 'No puzzles available.',
-  );
+    if (saved) {
+      const data = dataByDate.get(date);
+      status = data
+        ? getPuzzleStatus(saved, data)
+        : { kind: 'attempted', text: '?/4', label: 'Attempted, status unavailable' };
+    }
+
+    return { date, number: puzzleNumber(date), status };
+  });
+
+  render(entries, 'No puzzles available.');
 }
 
 export function closePuzzlesModal() {
