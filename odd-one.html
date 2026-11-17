@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Find the odd word.">
+  <title>Odd One — The New York Times</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="odd-one.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__left">
+      <button class="iconbtn" id="games-btn" aria-label="All games" aria-expanded="false" aria-controls="games-drawer">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <a class="wordmark" href="./">
+        <span class="wordmark__t">T</span>
+        <span class="wordmark__games">Games</span>
+      </a>
+    </div>
+    <div class="topbar__right">
+      <a class="btn btn--subscribe" href="#">Subscribe</a>
+      <a class="btn btn--login" href="#">Log In</a>
+      <button class="iconbtn" id="theme-btn" aria-label="Theme: System" title="Theme: System">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="4" width="19" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 20.5h7M12 17v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="games-backdrop" class="games-backdrop" hidden></div>
+  <aside id="games-drawer" class="games-drawer" aria-label="All games" aria-hidden="true" hidden>
+    <div class="games-drawer__head">
+      <span class="games-drawer__title">Games</span>
+      <button type="button" class="games-drawer__close" id="games-close" aria-label="Close games menu">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <nav class="games-list" aria-label="Games">
+      <a href="./" class="game-card" data-game="connections">
+        <span class="game-card__icon">
+          <svg viewBox="0 0 96 96" aria-hidden="true">
+            <rect x="4" y="4" width="88" height="88" rx="10" fill="#F7F7F2"/>
+            <g stroke="#121212" stroke-width="3" stroke-linejoin="round">
+              <rect x="12" y="12" width="44" height="15" rx="3" fill="#BA81C5"/>
+              <rect x="60" y="12" width="24" height="15" rx="3" fill="#BA81C5"/>
+              <rect x="12" y="31" width="24" height="15" rx="3" fill="#BA81C5"/>
+              <rect x="40" y="31" width="44" height="15" rx="3" fill="#BA81C5"/>
+              <rect x="12" y="50" width="44" height="15" rx="3" fill="#BA81C5"/>
+              <rect x="60" y="50" width="24" height="15" rx="3" fill="#BA81C5"/>
+              <rect x="12" y="69" width="24" height="15" rx="3" fill="#BA81C5"/>
+              <rect x="40" y="69" width="44" height="15" rx="3" fill="#BA81C5"/>
+            </g>
+          </svg>
+        </span>
+        <span class="game-card__copy">
+          <span class="game-card__title">Connections</span>
+          <span class="game-card__desc">Group words that share a common thread.</span>
+        </span>
+      </a>
+      <a href="odd-one.html" class="game-card" data-game="odd-one" aria-current="page">
+        <span class="game-card__icon">
+          <svg viewBox="0 0 96 96" aria-hidden="true">
+            <rect x="4" y="4" width="88" height="88" rx="10" fill="#F7F7F2"/>
+            <g stroke="#121212" stroke-width="3" stroke-linejoin="round">
+              <rect x="18" y="18" width="24" height="24" rx="5" fill="#BA81C5"/>
+              <rect x="54" y="18" width="24" height="24" rx="5" fill="#BA81C5"/>
+              <rect x="18" y="54" width="24" height="24" rx="5" fill="#BA81C5"/>
+              <rect x="54" y="54" width="24" height="24" rx="5" fill="#F9DF6D"/>
+            </g>
+          </svg>
+        </span>
+        <span class="game-card__copy">
+          <span class="game-card__title">Odd One</span>
+          <span class="game-card__desc">Find the odd word.</span>
+        </span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="page">
+    <div class="game-head">
+      <div class="game-head__meta">
+        <h1 class="game-head__title">Odd One</h1>
+        <p class="game-head__date">Find the odd word.</p>
+      </div>
+    </div>
+
+    <article id="odd-board" class="board odd-board">
+      <div id="odd-band" class="odd-band" role="img" aria-label="Category color" hidden></div>
+      <h2 class="board__prompt odd-prompt">One of these words doesn't belong.</h2>
+
+      <div id="odd-words" class="odd-words" role="group" aria-label="Choose the odd word">
+        <div class="odd-loading">Loading…</div>
+      </div>
+
+      <section id="odd-result" class="odd-result" aria-live="polite" hidden>
+        <p id="odd-verdict" class="odd-verdict"></p>
+        <p class="odd-category"><span class="odd-category__label">Category</span> <span id="odd-category"></span></p>
+      </section>
+
+      <p id="odd-error" class="odd-error" role="alert" hidden></p>
+
+      <div class="odd-actions">
+        <button type="button" id="odd-submit" class="pill odd-submit" disabled hidden>Submit</button>
+        <button type="button" id="odd-next" class="modal-btn modal-btn--continue odd-next" hidden>Next</button>
+      </div>
+    </article>
+  </main>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module" src="odd-one.js"></script>
+</body>
+</html>

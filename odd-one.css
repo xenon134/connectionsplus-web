@@ -1,0 +1,78 @@
+/* ---------- Odd One ---------- */
+.odd-band{
+  width:100%;height:64px;border-radius:6px;
+  margin:0 0 24px;background:var(--tile-bg);
+  transition:background .18s ease;
+}
+.odd-band[hidden]{display:none}
+
+.odd-prompt{margin-bottom:20px}
+
+.odd-words{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;width:100%;min-height:80px;
+}
+
+.odd-word{
+  height:80px;border:0;border-radius:6px;background:var(--tile-bg);color:var(--tile-fg);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:0 8px;font-size:17px;font-weight:700;line-height:1.2;text-transform:uppercase;
+  cursor:pointer;user-select:none;
+  overflow:hidden;overflow-wrap:break-word;word-break:normal;hyphens:none;
+  transition:background .12s ease,color .12s ease,transform .05s ease,box-shadow .12s ease;
+}
+.odd-word:hover:not(:disabled){background:var(--tile-hover)}
+.odd-word:active:not(:disabled){transform:scale(.98)}
+.odd-word:disabled{cursor:default}
+.odd-word.is-selected{background:var(--tile-sel);color:var(--tile-sel-fg)}
+.odd-word.is-correct{color:#121212}
+.odd-word.is-wrong{box-shadow:inset 0 0 0 3px #C94A4A}
+.odd-word:focus-visible{outline:3px solid rgba(90,89,78,.45);outline-offset:2px}
+
+.odd-board[data-color="0"] .odd-word.is-correct{background:#F9DF6D}
+.odd-board[data-color="1"] .odd-word.is-correct{background:#A0C35A}
+.odd-board[data-color="2"] .odd-word.is-correct{background:#B0C4EF}
+.odd-board[data-color="3"] .odd-word.is-correct{background:#BA81C5}
+
+.odd-loading{
+  grid-column:1/-1;display:flex;align-items:center;justify-content:center;
+  min-height:80px;color:var(--muted);font-size:16px;font-weight:500;
+}
+
+.odd-result{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  width:100%;margin-top:26px;padding-top:22px;border-top:1px solid var(--hair);
+  text-align:center;
+}
+.odd-result[hidden]{display:none}
+.odd-verdict{font-size:20px;font-weight:700;line-height:1.3;margin:0;color:var(--ink)}
+.odd-category{
+  font-size:15px;font-weight:500;line-height:1.4;color:var(--muted);
+  margin:0;max-width:100%;overflow-wrap:break-word;
+}
+.odd-category__label{font-weight:700;color:var(--ink);margin-right:4px}
+
+.odd-error{
+  margin:24px 0 0;padding:14px 18px;border-radius:8px;width:100%;
+  background:var(--tile-bg);color:var(--ink);font-size:15px;font-weight:500;
+  line-height:1.4;text-align:center;
+}
+.odd-error[hidden]{display:none}
+
+.odd-actions{display:flex;justify-content:center;margin-top:24px}
+.odd-submit[hidden],.odd-next[hidden]{display:none}
+
+@media (max-width:680px){
+  .odd-words{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .odd-word{font-size:18px}
+}
+
+@media (max-width:460px){
+  .odd-band{height:48px;margin-bottom:20px}
+  .odd-words{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .odd-word{height:72px;font-size:17px}
+}
+
+@media (max-width:340px){
+  .odd-words{grid-template-columns:1fr}
+}
