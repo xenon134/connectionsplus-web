@@ -2,3 +2,5 @@ fonts/franklin/
 .DS_Store
 Thumbs.db
 puzzle/
+__pycache__/
+*.pyc
