@@ -65,6 +65,8 @@ async function goTo(dateStr) {
 
 function init(data) {
   game = new ConnectionsGame(data);
+  // Solved bars belong to one puzzle; drop any from the previous one.
+  el.solved.innerHTML = '';
   const key = currentDate || game.printDate;
   const saved = loadProgress(key);
   if (saved) {
